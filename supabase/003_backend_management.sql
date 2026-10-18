@@ -1,0 +1,10 @@
+SET search_path TO promptto;
+CREATE TABLE IF NOT EXISTS invitation_revocations(invitation_id TEXT PRIMARY KEY REFERENCES invitations(id),account_id TEXT NOT NULL REFERENCES accounts(id),actor_id TEXT NOT NULL REFERENCES users(id),revoked_at TEXT NOT NULL);
+    CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON notifications(account_id,user_id,is_read,created_at);
+    CREATE INDEX IF NOT EXISTS idx_invitations_account_email ON invitations(account_id,email);
+    CREATE INDEX IF NOT EXISTS idx_traction_values_scope ON traction_values(account_id,project_id,day);
+    CREATE INDEX IF NOT EXISTS idx_task_reviews_scope ON reviews(account_id,task_id,decision,created_at);
+    CREATE INDEX IF NOT EXISTS idx_project_members_user ON project_members(account_id,user_id);
+    CREATE INDEX IF NOT EXISTS idx_score_exception_events_scope ON score_exception_events(account_id,task_id,created_at);
+REVOKE ALL ON ALL TABLES IN SCHEMA promptto FROM PUBLIC, anon, authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA promptto REVOKE ALL ON TABLES FROM PUBLIC, anon, authenticated;

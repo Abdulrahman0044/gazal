@@ -1,0 +1,16 @@
+{
+  "name": "gazal-dev-checks",
+  "private": true,
+  "scripts": {
+    "test:frontend": "node tests/frontend/test_auth.cjs",
+    "test:schema": "node tests/check_schema.mjs",
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "start": "npm --prefix frontend run start",
+    "typecheck": "npm --prefix frontend run typecheck",
+    "test:next": "npm --prefix frontend test"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.9"
+  }
+}

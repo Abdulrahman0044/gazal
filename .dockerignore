@@ -1,0 +1,14 @@
+.env
+.env.local
+.env.production
+.git
+.venv
+__pycache__
+.pytest_cache
+*.sqlite3*
+certs
+
+**/node_modules
+**/.next
+**/.env*
+**/*.tsbuildinfo

@@ -1,0 +1,6 @@
+SET search_path TO promptto;
+CREATE TABLE IF NOT EXISTS project_members(account_id TEXT NOT NULL,project_id TEXT NOT NULL,user_id TEXT NOT NULL REFERENCES users(id),joined_at TEXT NOT NULL,PRIMARY KEY(account_id,project_id,user_id),FOREIGN KEY(project_id,account_id) REFERENCES projects(id,account_id));
+    CREATE TABLE IF NOT EXISTS invitations(id TEXT PRIMARY KEY,account_id TEXT NOT NULL REFERENCES accounts(id),project_id TEXT,email TEXT NOT NULL,name TEXT NOT NULL,role TEXT NOT NULL,token_hash TEXT UNIQUE NOT NULL,expires_at TEXT NOT NULL,accepted_at TEXT,invited_by TEXT NOT NULL REFERENCES users(id),email_status TEXT NOT NULL DEFAULT 'not_configured',FOREIGN KEY(project_id,account_id) REFERENCES projects(id,account_id));
+    CREATE TABLE IF NOT EXISTS notifications(id TEXT PRIMARY KEY,account_id TEXT NOT NULL REFERENCES accounts(id),user_id TEXT NOT NULL REFERENCES users(id),title TEXT NOT NULL,message TEXT NOT NULL,created_at TEXT NOT NULL,is_read INTEGER NOT NULL DEFAULT 0);
+    CREATE TABLE IF NOT EXISTS reminder_receipts(account_id TEXT NOT NULL,task_id TEXT NOT NULL,day TEXT NOT NULL,PRIMARY KEY(account_id,task_id,day));
+REVOKE ALL ON ALL TABLES IN SCHEMA promptto FROM PUBLIC, anon, authenticated;
