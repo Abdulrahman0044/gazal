@@ -145,6 +145,31 @@ test('workspace sidebar slides open and closed on narrow screens',async()=>{
  await act(async()=>root.unmount());
  window.matchMedia=originalMatchMedia;
 });
+test('workspace sidebar remains toggleable on wide screens without a mobile backdrop',async()=>{
+ sessionStorage.setItem('pt_token','desktop-token');
+ const originalMatchMedia=window.matchMedia;
+ window.matchMedia=(()=>({matches:false,media:'(max-width: 760px)',onchange:null,addListener:()=>{},removeListener:()=>{},addEventListener:()=>{},removeEventListener:()=>{},dispatchEvent:()=>false})) as any;
+ mock(path=>{
+  if(path==='/api/me')return {id:'ada',name:'Ada',is_super:false};
+  if(path==='/api/accounts')return [];
+  return [];
+ });
+ const root=createRoot(host);await act(async()=>{root.render(<WorkspaceShell/>);await tick()});
+ const app=host.querySelector('#app') as HTMLElement;
+ const toggle=host.querySelector('#sidebarToggle') as HTMLButtonElement;
+ const backdrop=host.querySelector('#sidebarBackdrop') as HTMLElement;
+ assert.ok(app.classList.contains('sidebar-open'));
+ assert.equal(toggle.getAttribute('aria-expanded'),'true');
+ assert.equal(backdrop.hidden,true);
+ await act(async()=>toggle.click());
+ assert.ok(app.classList.contains('sidebar-closed'));
+ assert.equal(toggle.getAttribute('aria-expanded'),'false');
+ assert.equal(backdrop.hidden,true);
+ await act(async()=>toggle.click());
+ assert.ok(app.classList.contains('sidebar-open'));
+ await act(async()=>root.unmount());
+ window.matchMedia=originalMatchMedia;
+});
 test('workspace navigation renders the selected page after loading its data',async()=>{
  sessionStorage.setItem('pt_token','navigation-token');
  mock(path=>{
@@ -159,19 +184,69 @@ test('workspace navigation renders the selected page after loading its data',asy
  assert.equal(host.querySelector('[data-view="projects"]')?.classList.contains('active'),true);
  await act(async()=>root.unmount());
 });
+test('traction report and data sources support dated manual counts',async()=>{
+ sessionStorage.setItem('pt_token','traction-token');
+ let activeUsers=21,manualSource=false;
+ const metrics=[
+  ['total_users','Registered users','count','snapshot'],['active_users','Daily active users','count','snapshot'],
+  ['weekly_active_users','Weekly active users','count','snapshot'],['monthly_active_users','Monthly active users','count','snapshot'],
+  ['new_signups','New sign-ups','count','flow'],['activated_users','Activated users','count','flow'],
+  ['activation_rate','Activation rate','%','snapshot'],['posts_published','Posts published','count','flow'],
+  ['paying_customers','Paying customers','count','snapshot'],['organic_social','Organic social sign-ups','count','flow'],
+  ['organic_search','Organic search sign-ups','count','flow'],['paid_campaign','Paid campaign sign-ups','count','flow'],
+  ['referrals','Referral / community sign-ups','count','flow'],['direct_signups','Direct / unknown sign-ups','count','flow'],
+  ['website_visitors','Website visitors','count','flow'],['registered_period','Registered in period','count','flow'],
+  ['connected_accounts','Connected accounts','count','snapshot'],['first_posts','First posts','count','flow'],
+  ['scheduling_users','Scheduling users','count','snapshot'],['ai_tool_users','AI tool users','count','snapshot'],
+  ['analytics_users','Analytics users','count','snapshot'],['sentiment_users','Sentiment users','count','snapshot'],
+  ['multi_member_workspaces','Multi-member workspaces','count','snapshot'],['returning_users','Returning users','count','snapshot'],
+  ['dormant_users','Dormant users','count','snapshot'],['trials_started','Trials started','count','flow'],
+  ['paid_conversions','Paid conversions','count','flow'],['mrr','Monthly recurring revenue','NGN','snapshot'],
+  ['billed','Billed','NGN','flow'],['collected','Collected','NGN','flow'],['refunds','Refunds','NGN','flow'],
+  ['starter_users','Starter users','count','snapshot'],['professional_users','Professional users','count','snapshot'],
+  ['advanced_users','Advanced users','count','snapshot'],['individual_accounts','Individual accounts','count','snapshot'],
+  ['creator_accounts','Creator accounts','count','snapshot'],['small_business_accounts','Small business accounts','count','snapshot'],
+  ['brand_accounts','Brand accounts','count','snapshot'],['enterprise_accounts','Enterprise accounts','count','snapshot'],
+  ['influencer_accounts','Influencer accounts','count','snapshot'],['marketing_team_accounts','Marketing team accounts','count','snapshot']
+ ];
+ mock((path,body)=>{
+  if(path==='/api/me')return {id:'ada',name:'Ada',is_super:false};
+  if(path==='/api/accounts')return [{id:'team',name:'Team',role:'account_admin'}];
+  if(path.endsWith('/projects'))return [{id:'project',name:'Growth'}];
+  if(path.endsWith('/traction?')||path.includes('/traction?'))return {metrics:metrics.map(([key,label,unit,aggregation])=>({key,label,unit,aggregation,value:key==='active_users'?activeUsers:null,as_of:key==='active_users'?'2026-10-20':null,source:key==='active_users'?'manual':null})),history:[]};
+  if(path.endsWith('/sources')&&body?.mode==='manual'){manualSource=true;return {id:'source',metric:'active_users',mode:'manual'};}
+  if(path.endsWith('/sources'))return manualSource?[{metric:'active_users',mode:'manual'}]:[];
+  if(path.endsWith('/manual')){activeUsers=body.value;return {ok:true};}
+  return [];
+ });
+ const root=createRoot(host);await act(async()=>{root.render(<WorkspaceShell/>);await tick()});
+ await act(async()=>{(host.querySelector('[data-view="traction"]') as HTMLButtonElement).click();await tick()});
+ assert.match(host.querySelector('#content')?.textContent||'',/Executive snapshot/);
+ assert.match(host.querySelector('#content')?.textContent||'',/Acquisition & activation/);
+ await act(async()=>{(host.querySelector('[data-view="sources"]') as HTMLButtonElement).click();await tick()});
+ assert.match(host.querySelector('#content')?.textContent||'',/Enter a figure manually/);
+ await act(async()=>{(host.querySelector('[data-source="active_users"][data-mode="manual"]') as HTMLButtonElement).click();await tick()});
+ const metric=host.querySelector('#manualMetric') as HTMLSelectElement;metric.value='active_users';
+ await act(async()=>metric.dispatchEvent(new dom.window.Event('change',{bubbles:true})));
+ fill('manualValue','34');
+ await act(async()=>{host.querySelector('#manualForm')!.dispatchEvent(new dom.window.Event('submit',{bubbles:true,cancelable:true}));await tick()});
+ assert.deepEqual(calls.find(call=>call.path.endsWith('/manual'))?.body,{metric:'active_users',date:(host.querySelector('#manualDate') as HTMLInputElement).value,value:34});
+ assert.match(host.querySelector('#content')?.textContent||'',/Manual source selected/);
+ await act(async()=>root.unmount());
+});
 test('workspace navigation shows a retryable error if a required request fails',async()=>{
  sessionStorage.setItem('pt_token','navigation-error-token');
  mock(path=>{
   if(path==='/api/me')return {id:'ada',name:'Ada',is_super:false};
   if(path==='/api/accounts')return [{id:'team',name:'Team',role:'account_admin'}];
-  if(path.endsWith('/employees'))return {status:503,data:{detail:'People service unavailable'}};
+  if(path.endsWith('/projects'))return {status:503,data:{detail:'Project service unavailable'}};
   return [];
  });
  const root=createRoot(host);await act(async()=>{root.render(<WorkspaceShell/>);await tick()});
  await act(async()=>{(host.querySelector('[data-view="projects"]') as HTMLButtonElement).click();await tick()});
  assert.equal(host.querySelector('#pageTitle')?.textContent,'Projects');
  assert.match(host.querySelector('#content')?.textContent||'',/Could not load projects/);
- assert.match(host.querySelector('#content')?.textContent||'',/People service unavailable/);
+ assert.match(host.querySelector('#content')?.textContent||'',/Project service unavailable/);
  assert.ok(host.querySelector('#retryView'));
  await act(async()=>root.unmount());
 });
@@ -203,4 +278,54 @@ test('Strict Mode cancels initial workspace boot without logging out the next mo
  await act(async()=>{await new Promise(r=>setTimeout(r,50))});
  assert.equal(sessionStorage.getItem('pt_token'),'strict-token');assert.match(host.textContent!,/Your account is ready/);
  await act(async()=>root.unmount());
+});
+test('workspace renders the overview without waiting for optional startup requests',async()=>{
+ sessionStorage.setItem('pt_token','fast-dashboard-token');
+ let releaseOptional!:()=>void;
+ const optionalRequests=new Promise<void>(resolve=>{releaseOptional=resolve});
+ globalThis.fetch=async(input:any)=>{
+  const path=String(input);calls.push({path,body:undefined});
+  if(/\/(projects|employees|notifications|presence)$/.test(path))await optionalRequests;
+  const data=path==='/api/me'?{id:'ada',name:'Ada',is_super:false}:
+   path==='/api/accounts'?[{id:'team',name:'Team',role:'account_admin'}]:
+   path.endsWith('/dashboard')?{total:0,approved:0,overdue:0,active_projects:0,status_counts:{}}:[];
+  return {ok:true,status:200,json:async()=>data} as Response;
+ };
+ const root=createRoot(host);await act(async()=>{root.render(<WorkspaceShell/>);await new Promise(resolve=>setTimeout(resolve,40))});
+ assert.match(host.querySelector('#content')?.textContent||'',/Completion progress/);
+ assert.equal((host.querySelector('#workspaceLoading') as HTMLElement).hidden,true);
+ assert.equal((host.querySelector('#app') as HTMLElement).hidden,false);
+ assert.ok(calls.some(call=>call.path.endsWith('/dashboard')));
+ releaseOptional();
+ await act(async()=>{await tick()});
+ await act(async()=>root.unmount());
+});
+test('workspace navigation keeps current content while page data loads and avoids unrelated requests',async()=>{
+ sessionStorage.setItem('pt_token','navigation-cache-token');
+ calls=[];
+ let releaseProjects!:()=>void;
+ const projectsPending=new Promise<void>(resolve=>{releaseProjects=resolve});
+ globalThis.fetch=async(input:any,options:any)=>{
+  const path=String(input);const body=options?.body?JSON.parse(options.body):undefined;calls.push({path,body});
+  if(path.endsWith('/projects'))await projectsPending;
+  const data=path==='/api/me'?{id:'ada',name:'Ada',is_super:false}:
+   path==='/api/accounts'?[{id:'team',name:'Team',role:'account_admin'}]:
+   path.endsWith('/dashboard')?{total:0,approved:0,overdue:0,active_projects:0,status_counts:{}}:
+   path.endsWith('/projects')?[{id:'project',name:'Project'}]:[];
+  return {ok:true,status:200,json:async()=>data} as Response;
+ };
+ const root=createRoot(host);await act(async()=>{root.render(<WorkspaceShell/>);await tick()});
+ assert.match(host.querySelector('#content')?.textContent||'',/Completion progress/);
+ await act(async()=>{(host.querySelector('[data-view="projects"]') as HTMLButtonElement).click();await tick()});
+ assert.match(host.querySelector('#content')?.textContent||'',/Completion progress/);
+ assert.doesNotMatch(host.querySelector('#content')?.textContent||'',/Loading projects/);
+ assert.equal(host.querySelector('#content')?.getAttribute('aria-busy'),'true');
+ releaseProjects();
+ await act(async()=>{await tick()});
+ assert.match(host.querySelector('#content')?.textContent||'',/Account projects \(1\)/);
+ const projectCalls=calls.filter(call=>call.path.endsWith('/projects'));
+ const employeeCalls=calls.filter(call=>call.path.endsWith('/employees'));
+ await act(async()=>root.unmount());
+ assert.equal(projectCalls.length,1);
+ assert.equal(employeeCalls.length,0);
 });

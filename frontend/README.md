@@ -23,6 +23,8 @@ npm run dev
 
 Open http://localhost:3000. Routes: `/`, `/signin`, `/signup`, `/join#token=...`, `/app`. Admin and employee login links both use `/signin`; access is enforced by FastAPI. The old Python-served frontend remains a compatibility fallback on port 8000. Use port 3000 for the new frontend.
 
+The dashboard initially waits only for its task list and summary; projects, people, notifications, and presence load after the dashboard is displayed. Workspace navigation requests only the data required by the selected page, reuses successful GET responses for up to 15 seconds, and keeps the current page visible while new data loads. Mutations invalidate the cached workspace data. FastAPI reports endpoint processing time in the `Server-Timing: app;dur=...` response header and logs each API route with its processing duration. Compare that duration with the browser request duration to distinguish backend time from proxy/network delay.
+
 ## Verification and production
 
 ```sh
